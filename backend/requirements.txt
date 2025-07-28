@@ -1,0 +1,53 @@
+# backend/requirements.txt
+# Flask and core web framework
+Flask>=2.3.3
+Flask-CORS>=4.0.0
+Flask-JWT-Extended>=4.5.3
+Flask-Limiter>=3.5.0
+Werkzeug>=2.3.7
+
+# Database
+Flask-SQLAlchemy>=3.0.5
+SQLAlchemy>=2.0.23
+
+# Authentication and security
+Flask-Bcrypt>=1.0.1
+bcrypt>=4.0.1
+PyJWT>=2.8.0
+
+# Azure OpenAI
+openai>=1.3.7
+
+# Web scraping and requests
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+selenium>=4.15.2
+webdriver-manager>=4.0.1
+
+# Data processing and export
+pandas>=2.1.3
+openpyxl>=3.1.2
+
+# Email validation
+email-validator>=2.1.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# Utilities
+python-dateutil>=2.8.2
+urllib3>=2.0.7
+
+# Development and testing (optional)
+pytest>=7.4.3
+pytest-flask>=1.3.0
+
+# Optional: For advanced features
+# redis>=5.0.1  # For Redis-based rate limiting
+# celery>=5.3.4  # For background tasks
+# gunicorn>=21.2.0  # For production deployment
+
+# Note: Some packages may require system dependencies:
+# - Chrome/Chromium browser for Selenium
+# - For Windows: Visual C++ Build Tools may be needed for some packages

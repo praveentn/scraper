@@ -3,6 +3,22 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# claude
+claude/
+models/
+*.pkl
+*.index
+*.db
+*.xlsx
+
+# node.js dependencies
+node_modules/
+
+# react native dependencies
+.expo/
+
+
+
 # C extensions
 *.so
 

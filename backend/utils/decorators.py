@@ -12,15 +12,42 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         try:
             user_id = get_jwt_identity()
-            user = AuthService.get_user_by_id(user_id)
+            current_app.logger.debug(f"Admin check - User ID from token: {user_id}")
             
-            if not user or user.role != 'admin':
+            if not user_id:
+                current_app.logger.warning("Admin check failed - No user ID in token")
+                return jsonify({
+                    'success': False,
+                    'message': 'Authorization token required'
+                }), 401
+            
+            user = AuthService.get_user_by_id(user_id)
+            current_app.logger.debug(f"Admin check - User found: {user.email if user else 'None'}, Role: {user.role if user else 'None'}")
+            
+            if not user:
+                current_app.logger.warning(f"Admin check failed - User not found for ID: {user_id}")
+                return jsonify({
+                    'success': False,
+                    'message': 'User not found'
+                }), 404
+            
+            if not user.is_active:
+                current_app.logger.warning(f"Admin check failed - User not active: {user.email}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Account is deactivated'
+                }), 403
+            
+            if user.role != 'admin':
+                current_app.logger.warning(f"Admin check failed - User {user.email} has role '{user.role}', expected 'admin'")
                 return jsonify({
                     'success': False,
                     'message': 'Admin access required'
                 }), 403
             
+            current_app.logger.debug(f"Admin check passed for user: {user.email}")
             return f(*args, **kwargs)
+            
         except Exception as e:
             current_app.logger.error(f"Admin check error: {e}")
             return jsonify({

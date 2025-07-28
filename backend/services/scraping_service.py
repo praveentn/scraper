@@ -2,6 +2,8 @@
 import requests
 import time
 import hashlib
+import ssl
+import urllib3
 from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
@@ -19,6 +21,8 @@ from services.azure_openai_service import get_azure_openai_service
 import concurrent.futures
 import threading
 
+# Disable SSL warnings for development
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 robots = RobotFileParser()
 
@@ -31,6 +35,8 @@ class ScrapingService:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+        # Disable SSL verification for development
+        self.session.verify = False
         self.driver = None
         self._lock = threading.Lock()
     
@@ -48,6 +54,9 @@ class ScrapingService:
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--disable-web-security')
             chrome_options.add_argument('--allow-running-insecure-content')
+            chrome_options.add_argument('--ignore-certificate-errors')
+            chrome_options.add_argument('--ignore-ssl-errors')
+            chrome_options.add_argument('--ignore-certificate-errors-spki-list')
             
             self.driver = webdriver.Chrome(options=chrome_options)
             self.driver.set_page_load_timeout(30)
@@ -63,7 +72,7 @@ class ScrapingService:
             parsed_url = urlparse(url)
             robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
             
-            response = self.session.get(robots_url, timeout=10)
+            response = self.session.get(robots_url, timeout=10, verify=False)
             if response.status_code == 200:
                 # Simple robots.txt parsing - can be enhanced
                 robots_content = response.text.lower()
@@ -223,7 +232,7 @@ class ScrapingService:
             }
     
     def _scrape_with_requests(self, url, website):
-        """Scrape using requests library"""
+        """Scrape using requests library with SSL bypass"""
         try:
             # Setup authentication if required
             auth = None
@@ -236,13 +245,19 @@ class ScrapingService:
                 auth_config = website.get_auth_config()
                 headers['Authorization'] = f"Bearer {auth_config.get('api_key', '')}"
             
-            # Make request
+            # Create SSL context that ignores verification
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # Make request with SSL verification disabled
             response = self.session.get(
                 url,
                 auth=auth,
                 headers=headers,
                 timeout=30,
-                allow_redirects=True
+                allow_redirects=True,
+                verify=False  # Disable SSL verification
             )
             response.raise_for_status()
             

@@ -55,8 +55,10 @@ class BlitzTester:
         if use_auth:
             token = self.admin_token if admin and self.admin_token else self.auth_token
             if token:
+                print(f"Using token: {token[:10] + '...' + token[-10:]}... for {method} {url} (ADMIN: {admin})")
                 headers['Authorization'] = f'Bearer {token}'
-        
+
+
         try:
             if method.upper() == 'GET':
                 response = requests.get(url, headers=headers, timeout=30)
@@ -171,6 +173,11 @@ class BlitzTester:
         if response and response.status_code == 200 and data.get('success'):
             self.auth_token = data['tokens']['access_token']
             self.log_test("User Login", True, "User logged in successfully")
+            self.test_data['auth_token'] = self.auth_token
+            self.test_data['user_id'] = data['user']['id']
+            print(f"   User ID: {self.test_data['user_id']}")
+            print(f"   Auth Token: {self.auth_token}")
+
             return True
         else:
             self.log_test("User Login", False, "Login failed", data)
@@ -192,6 +199,8 @@ class BlitzTester:
         if response and response.status_code == 200 and data.get('success'):
             self.admin_token = data['tokens']['access_token']
             self.log_test("Admin Login", True, "Admin logged in successfully")
+            print(f"   Admin Auth Token: {self.admin_token}")
+            self.test_data['admin_token'] = self.admin_token
             return True
         else:
             self.log_test("Admin Login", False, "Admin login failed", data)

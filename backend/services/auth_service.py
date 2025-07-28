@@ -44,9 +44,9 @@ class AuthService:
             user.last_login = datetime.utcnow()
             db.session.commit()
             
-            # Generate tokens
-            access_token = create_access_token(identity=user.id)
-            refresh_token = create_refresh_token(identity=user.id)
+            # Generate tokens - FIXED: Use string identity
+            access_token = create_access_token(identity=str(user.id))
+            refresh_token = create_refresh_token(identity=str(user.id))
             
             return {
                 'success': True,
@@ -117,7 +117,8 @@ class AuthService:
         try:
             # Decode refresh token to get user ID
             token_data = decode_token(refresh_token)
-            user_id = token_data['sub']
+            user_id_str = token_data['sub']
+            user_id = int(user_id_str)  # Convert back to int for database query
             
             # Verify user still exists and is active
             user = User.query.get(user_id)
@@ -128,8 +129,8 @@ class AuthService:
                     'token': None
                 }
             
-            # Generate new access token
-            access_token = create_access_token(identity=user_id)
+            # Generate new access token - FIXED: Use string identity
+            access_token = create_access_token(identity=str(user_id))
             
             return {
                 'success': True,
@@ -147,11 +148,18 @@ class AuthService:
     
     @staticmethod
     def get_user_by_id(user_id):
-        """Get user by ID"""
+        """Get user by ID - handles both string and int user_id"""
         try:
+            # Convert string to int if needed
+            if isinstance(user_id, str):
+                user_id = int(user_id)
+            
             user = User.query.get(user_id)
             if user and user.is_active:
                 return user
+            return None
+        except (ValueError, TypeError) as e:
+            current_app.logger.error(f"Invalid user ID format: {user_id}, error: {e}")
             return None
         except Exception as e:
             current_app.logger.error(f"Get user error: {e}")
@@ -161,6 +169,10 @@ class AuthService:
     def update_user_profile(user_id, **kwargs):
         """Update user profile"""
         try:
+            # Convert string to int if needed
+            if isinstance(user_id, str):
+                user_id = int(user_id)
+            
             user = User.query.get(user_id)
             if not user:
                 return {
@@ -204,6 +216,10 @@ class AuthService:
     def change_password(user_id, current_password, new_password):
         """Change user password"""
         try:
+            # Convert string to int if needed
+            if isinstance(user_id, str):
+                user_id = int(user_id)
+            
             user = User.query.get(user_id)
             if not user:
                 return {
@@ -327,6 +343,10 @@ class AuditService:
                    details=None, ip_address=None, user_agent=None):
         """Log user action for audit purposes"""
         try:
+            # Convert string to int if needed
+            if isinstance(user_id, str):
+                user_id = int(user_id)
+            
             audit_log = AuditLog(
                 user_id=user_id,
                 action=action,
@@ -355,6 +375,9 @@ class AuditService:
             query = AuditLog.query
             
             if user_id:
+                # Convert string to int if needed
+                if isinstance(user_id, str):
+                    user_id = int(user_id)
                 query = query.filter(AuditLog.user_id == user_id)
             
             if action:

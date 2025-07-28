@@ -20,13 +20,11 @@ class Config:
     FLASK_PORT = int(os.environ.get('FLASK_PORT', 5232))
     REACT_PORT = int(os.environ.get('REACT_PORT', 3232))
     
-    # JWT Configuration
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY
+    # JWT Configuration - Fixed to use consistent secret key
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_ALGORITHM = 'HS256'
-    JWT_BLACKLIST_ENABLED = True
-    JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
     
     # File upload configuration
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or 'uploads'
@@ -61,7 +59,7 @@ class Config:
     
     # Security Configuration
     WTF_CSRF_TIME_LIMIT = None
-    WTF_CSRF_ENABLED = True
+    WTF_CSRF_ENABLED = False  # Disable CSRF for API
     SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
@@ -116,7 +114,7 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     SESSION_COOKIE_SECURE = True
-    WTF_CSRF_ENABLED = True
+    WTF_CSRF_ENABLED = False  # Keep disabled for API
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     LOG_LEVEL = 'INFO'
     LOG_TO_STDOUT = True

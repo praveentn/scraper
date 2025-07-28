@@ -54,6 +54,7 @@ def create_app(config_name=None):
     
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
+        app.logger.error(f"Invalid token error: {error}")
         return jsonify({
             'success': False,
             'message': 'Invalid token'
@@ -171,6 +172,7 @@ def create_app(config_name=None):
         app.logger.info(f"   Environment: {os.environ.get('FLASK_ENV', 'development')}")
         app.logger.info(f"   Debug mode: {app.config.get('DEBUG', False)}")
         app.logger.info(f"   Port: {app.config.get('FLASK_PORT', 5232)}")
+        app.logger.info(f"   JWT Secret Key configured: {bool(app.config.get('JWT_SECRET_KEY'))}")
         
         # Validate Azure OpenAI configuration
         validation = validate_azure_openai_config(app.config)

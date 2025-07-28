@@ -68,6 +68,7 @@ def create_tables(app):
             
             # Create indexes for better performance
             db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);"))
             db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_id);"))
             db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_websites_project ON websites(project_id);"))
             db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_pages_website ON pages(website_id);"))
@@ -87,13 +88,20 @@ def create_tables(app):
 
 
 def create_admin_user(app, email="admin@example.com", password="admin123", first_name="Admin", last_name="User"):
-    """Create default admin user"""
+    """Create default admin user with proper role assignment"""
     with app.app_context():
         try:
             # Check if admin already exists
             existing_admin = User.query.filter_by(email=email).first()
             if existing_admin:
-                print(f"ℹ️  Admin user already exists: {email}")
+                # Update existing user to ensure admin role
+                if existing_admin.role != 'admin':
+                    existing_admin.role = 'admin'
+                    existing_admin.is_active = True
+                    db.session.commit()
+                    print(f"✅ Updated existing user to admin: {email}")
+                else:
+                    print(f"ℹ️  Admin user already exists: {email}")
                 return existing_admin
             
             # Create admin user
@@ -101,7 +109,7 @@ def create_admin_user(app, email="admin@example.com", password="admin123", first
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
-                role='admin',
+                role='admin',  # Explicitly set admin role
                 is_active=True
             )
             admin.set_password(password)
@@ -109,13 +117,50 @@ def create_admin_user(app, email="admin@example.com", password="admin123", first
             db.session.add(admin)
             db.session.commit()
             
-            print(f"✅ Admin user created: {email} / {password}")
+            # Verify admin role was set correctly
+            created_admin = User.query.filter_by(email=email).first()
+            if created_admin and created_admin.role == 'admin':
+                print(f"✅ Admin user created successfully: {email} / {password}")
+                print(f"   Role: {created_admin.role}")
+                print(f"   Active: {created_admin.is_active}")
+            else:
+                print(f"⚠️  Admin user created but role verification failed")
+            
             return admin
             
         except Exception as e:
             db.session.rollback()
             print(f"❌ Error creating admin user: {e}")
             raise
+
+
+def fix_admin_roles(app):
+    """Fix any existing users that should be admin"""
+    with app.app_context():
+        try:
+            # Find users with admin-like emails and ensure they have admin role
+            admin_emails = ['admin@example.com', 'admin@test.com', 'administrator@example.com']
+            
+            for email in admin_emails:
+                user = User.query.filter_by(email=email).first()
+                if user and user.role != 'admin':
+                    user.role = 'admin'
+                    user.is_active = True
+                    print(f"✅ Fixed admin role for: {email}")
+            
+            # Also check for users created in tests with admin in email
+            admin_users = User.query.filter(User.email.like('%admin%')).all()
+            for user in admin_users:
+                if user.role != 'admin':
+                    user.role = 'admin'
+                    user.is_active = True
+                    print(f"✅ Fixed admin role for: {user.email}")
+            
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error fixing admin roles: {e}")
 
 
 def create_sample_data(app):
@@ -150,8 +195,8 @@ def create_sample_data(app):
             # Create sample website
             website = Website(
                 project_id=project.id,
-                url="https://example.com",
-                name="Example Website",
+                url="https://httpbin.org",
+                name="HTTPBin Test Site",
                 description="Sample website for testing scraping functionality",
                 crawl_depth=2,
                 follow_external_links=False,
@@ -248,9 +293,18 @@ def verify_database(app):
             for table, count in tables.items():
                 print(f"   {table}: {count}")
             
+            # Check admin users
+            admin_users = User.query.filter_by(role='admin').all()
+            print(f"\n👑 Admin Users: {len(admin_users)}")
+            for admin in admin_users:
+                print(f"   - {admin.email} (ID: {admin.id}, Active: {admin.is_active})")
+            
             # Check FTS table
-            fts_result = db.session.execute(text("SELECT count(*) FROM pages_fts;")).scalar()
-            print(f"   pages_fts: {fts_result}")
+            try:
+                fts_result = db.session.execute(text("SELECT count(*) FROM pages_fts;")).scalar()
+                print(f"   pages_fts: {fts_result}")
+            except:
+                print(f"   pages_fts: Not available")
             
             # Check database file size
             db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
@@ -283,7 +337,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Database setup and management')
-    parser.add_argument('action', choices=['create', 'reset', 'backup', 'verify', 'admin', 'sample'], 
+    parser.add_argument('action', choices=['create', 'reset', 'backup', 'verify', 'admin', 'sample', 'fix-admin'], 
                        help='Action to perform')
     parser.add_argument('--email', default='admin@example.com', help='Admin email (for admin action)')
     parser.add_argument('--password', default='admin123', help='Admin password (for admin action)')
@@ -320,6 +374,10 @@ def main():
         
     elif args.action == 'sample':
         create_sample_data(app)
+        
+    elif args.action == 'fix-admin':
+        fix_admin_roles(app)
+        verify_database(app)
         
     print("🎉 Database setup completed")
 

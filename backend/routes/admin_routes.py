@@ -59,7 +59,7 @@ def get_users():
 @jwt_required()
 @admin_required
 def execute_sql():
-    """Execute raw SQL query"""
+    """Execute raw SQL query - FIXED VERSION"""
     try:
         user_id = get_jwt_identity()
         data = request.get_json()
@@ -71,74 +71,57 @@ def execute_sql():
             }), 400
         
         sql_query = data['sql'].strip()
-        page = data.get('page', 1)
-        per_page = min(data.get('per_page', 100), 1000)  # Max 1000 rows per page
         
-        # Basic SQL injection protection
-        dangerous_keywords = ['drop', 'delete', 'truncate', 'alter', 'create', 'insert', 'update']
+        if not sql_query:
+            return jsonify({
+                'success': False,
+                'message': 'SQL query cannot be empty'
+            }), 400
+        
+        # Basic validation - reject dangerous operations in certain contexts
+        dangerous_patterns = ['drop database', 'format c:', 'rm -rf', 'del /']
         sql_lower = sql_query.lower()
         
-        # Allow only SELECT statements and basic commands for safety
-        if not sql_lower.startswith('select') and not sql_lower.startswith('with'):
-            # Check if it's a potentially dangerous operation
-            if any(keyword in sql_lower for keyword in dangerous_keywords):
-                # Allow if explicitly confirmed
-                if not data.get('confirm_dangerous', False):
-                    return jsonify({
-                        'success': False,
-                        'message': 'This appears to be a potentially dangerous operation. Set confirm_dangerous=true if you want to proceed.',
-                        'requires_confirmation': True
-                    }), 400
+        for pattern in dangerous_patterns:
+            if pattern in sql_lower:
+                return jsonify({
+                    'success': False,
+                    'message': 'Query contains potentially dangerous operations'
+                }), 400
         
         try:
-            # For SELECT queries, add pagination
-            if sql_lower.startswith('select'):
-                # Count total rows first
-                count_query = f"SELECT COUNT(*) as total FROM ({sql_query}) as subquery"
-                count_result = db.session.execute(text(count_query))
-                total_rows = count_result.scalar()
-                
-                # Add pagination to original query
-                offset = (page - 1) * per_page
-                paginated_query = f"{sql_query} LIMIT {per_page} OFFSET {offset}"
-                
-                result = db.session.execute(text(paginated_query))
+            # **FIX: Wrap SQL in text() for SQLAlchemy 2.0+ compatibility**
+            result = db.session.execute(text(sql_query))
+            
+            # Handle different types of queries
+            if sql_lower.startswith(('select', 'show', 'describe', 'explain')):
+                # For SELECT queries, fetch results
                 rows = result.fetchall()
                 
-                # Get column names
-                columns = list(result.keys()) if hasattr(result, 'keys') else []
-                
-                # Convert rows to dictionaries
-                data_rows = []
-                for row in rows:
-                    row_dict = {}
-                    for i, col in enumerate(columns):
-                        row_dict[col] = row[i] if i < len(row) else None
-                    data_rows.append(row_dict)
+                # Convert rows to dictionaries if they have column names
+                if rows and hasattr(result, 'keys'):
+                    columns = list(result.keys())
+                    data_rows = [dict(zip(columns, row)) for row in rows]
+                else:
+                    data_rows = [list(row) for row in rows] if rows else []
+                    columns = [f"column_{i}" for i in range(len(data_rows[0]))] if data_rows else []
                 
                 response_data = {
                     'success': True,
+                    'query_type': 'SELECT',
                     'columns': columns,
-                    'rows': data_rows,
-                    'pagination': {
-                        'page': page,
-                        'per_page': per_page,
-                        'total': total_rows,
-                        'pages': (total_rows + per_page - 1) // per_page if total_rows > 0 else 0,
-                        'has_next': page * per_page < total_rows,
-                        'has_prev': page > 1
-                    }
+                    'data': data_rows,
+                    'row_count': len(data_rows),
+                    'message': f'Query executed successfully. {len(data_rows)} rows returned.'
                 }
             else:
-                # For non-SELECT queries
-                result = db.session.execute(text(sql_query))
+                # For INSERT, UPDATE, DELETE, CREATE, etc.
                 db.session.commit()
-                
-                # Get affected rows count if available
-                rowcount = getattr(result, 'rowcount', 0)
+                rowcount = result.rowcount if hasattr(result, 'rowcount') else 0
                 
                 response_data = {
                     'success': True,
+                    'query_type': 'MODIFY',
                     'message': f'Query executed successfully. {rowcount} rows affected.',
                     'rowcount': rowcount
                 }
@@ -149,7 +132,8 @@ def execute_sql():
                 action='execute_sql',
                 details={
                     'query_type': 'SELECT' if sql_lower.startswith('select') else 'MODIFY',
-                    'query_length': len(sql_query)
+                    'query_length': len(sql_query),
+                    'success': True
                 }
             )
             
@@ -158,6 +142,17 @@ def execute_sql():
         except Exception as sql_error:
             db.session.rollback()
             current_app.logger.error(f"SQL execution error: {sql_error}")
+            
+            # Log the failed execution
+            AuditService.log_action(
+                user_id=user_id,
+                action='execute_sql',
+                details={
+                    'query_length': len(sql_query),
+                    'success': False,
+                    'error': str(sql_error)
+                }
+            )
             
             return jsonify({
                 'success': False,

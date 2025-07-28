@@ -5,6 +5,71 @@ from . import projects_bp
 from services.project_service import ProjectService
 from services.auth_service import AuthService
 from utils.decorators import admin_required, project_access_required
+from models import db, Website, Project, Page
+
+
+@projects_bp.route('/<int:project_id>/websites', methods=['GET'])
+@jwt_required()
+@project_access_required
+def get_project_websites(project_id):
+    """Get all websites for a project"""
+    try:
+        user_id = get_jwt_identity()
+        
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        status = request.args.get('status')
+        
+        # Limit per_page to prevent abuse
+        per_page = min(per_page, 100)
+        
+        query = Website.query.filter_by(project_id=project_id)
+        
+        # Filter by status if provided
+        if status:
+            query = query.filter_by(status=status)
+        
+        # Order by creation date
+        query = query.order_by(Website.created_at.desc())
+        
+        # Paginate results
+        pagination = query.paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        # Get website stats
+        websites_data = []
+        for website in pagination.items:
+            website_dict = website.to_dict()
+            
+            # Add stats (you can extend this based on your needs)
+            website_dict.update({
+                'pages_scraped': len(website.pages) if hasattr(website, 'pages') else 0,
+                'last_scraped': website.last_crawled.isoformat() if website.last_crawled else None,
+                'status_display': website.status.title()
+            })
+            websites_data.append(website_dict)
+        
+        return jsonify({
+            'success': True,
+            'websites': websites_data,
+            'pagination': {
+                'page': pagination.page,
+                'pages': pagination.pages,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+    
+    except Exception as e:
+        current_app.logger.error(f"Get project websites error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to retrieve websites'
+        }), 500
 
 
 @projects_bp.route('', methods=['GET'])
@@ -249,5 +314,4 @@ def get_project_statistics(project_id):
             'success': False,
             'message': 'Failed to retrieve project statistics'
         }), 500
-
 

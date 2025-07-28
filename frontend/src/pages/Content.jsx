@@ -10,6 +10,7 @@ import {
   DocumentTextIcon,
   ClockIcon,
   SparklesIcon,
+  CpuChipIcon,
   AdjustmentsHorizontalIcon
 } from '@heroicons/react/24/outline';
 import { contentAPI, projectsAPI } from '../utils/api';
@@ -71,52 +72,77 @@ const Content = () => {
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search: searchTerm || undefined
       };
-
+      
+      // **FIX: Ensure we handle empty responses gracefully**
       const response = await contentAPI.getSnippets(params);
       
       if (response.data.success) {
-        setSnippets(response.data.snippets);
-        setPagination(response.data.pagination);
+        setSnippets(response.data.snippets || []);
+        setPagination(response.data.pagination || { page: 1, pages: 1, total: 0 });
       } else {
-        // Mock data for demonstration
-        setSnippets([
-          {
-            id: 1,
-            content: "Advanced Machine Learning Techniques for Data Analysis",
-            status: 'pending',
-            confidence_score: 0.87,
-            page_url: 'https://example.com/ml-guide',
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-            context: "<h1>Advanced Machine Learning Techniques for Data Analysis</h1><p>Explore cutting-edge ML algorithms..."
-          },
-          {
-            id: 2,
-            content: "The Future of Web Development: Trends and Technologies",
-            status: 'approved',
-            confidence_score: 0.92,
-            page_url: 'https://example.com/web-trends',
-            created_at: new Date(Date.now() - 172800000).toISOString(),
-            context: "<h2>The Future of Web Development: Trends and Technologies</h2><p>As we look ahead..."
-          },
-          {
-            id: 3,
-            content: "Essential JavaScript Patterns Every Developer Should Know",
-            status: 'pending',
-            confidence_score: 0.75,
-            page_url: 'https://example.com/js-patterns',
-            created_at: new Date(Date.now() - 259200000).toISOString(),
-            context: "<h3>Essential JavaScript Patterns Every Developer Should Know</h3><div>JavaScript patterns..."
-          }
-        ]);
-        setPagination({ page: 1, pages: 1, total: 3, has_next: false, has_prev: false });
+        console.error('Failed to load snippets:', response.data.message);
+        setSnippets([]);
+        setPagination({ page: 1, pages: 1, total: 0 });
       }
     } catch (error) {
       console.error('Error loading snippets:', error);
-      toast.error('Failed to load content snippets');
+      setSnippets([]);
+      setPagination({ page: 1, pages: 1, total: 0 });
+      // Only show error toast if it's not a simple "no content" case
+      if (error.response && error.response.status !== 404) {
+        toast.error('Failed to load content');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // **ALSO ADD: Helper function to handle empty state better**
+  const renderEmptyState = () => {
+    if (searchTerm) {
+      return (
+        <div className="text-center py-12">
+          <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No content found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            No content matches your search criteria. Try different filters or search terms.
+          </p>
+        </div>
+      );
+    }
+    
+    if (selectedProject) {
+      return (
+        <div className="text-center py-12">
+          <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No content extracted yet</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Content will appear here after you run scraping operations on your websites.
+          </p>
+          <div className="mt-6">
+            <a
+              href={`/scraper?project=${selectedProject}`}
+              className="btn-primary inline-flex items-center"
+            >
+              <CpuChipIcon className="h-5 w-5 mr-2" />
+              Start Scraping
+            </a>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="text-center py-12">
+        <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900">Select a project</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Choose a project to view extracted content and snippets.
+        </p>
+      </div>
+    );
+  };
+
 
   const handleApproveSnippet = async (snippetId, status, notes = '') => {
     try {
@@ -263,124 +289,124 @@ const Content = () => {
           <LoadingSpinner size="large" />
         </div>
       ) : snippets.length > 0 ? (
-        <>
           <div className="space-y-4">
-            {snippets.map((snippet) => (
-              <div key={snippet.id} className="card">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <span className={`badge ${getStatusColor(snippet.status)}`}>
-                        {snippet.status}
-                      </span>
-                      {snippet.confidence_score && (
-                        <span className={`text-sm font-medium ${getConfidenceColor(snippet.confidence_score)}`}>
-                          {Math.round(snippet.confidence_score * 100)}% confidence
+            {/* Snippets Grid */}
+            <div className="grid gap-6">
+              {snippets.map((snippet) => (
+                <div key={snippet.id} className="bg-white shadow rounded-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          {snippet.title || 'Untitled Snippet'}
+                        </h3>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          snippet.status === 'approved' 
+                            ? 'bg-green-100 text-green-800'
+                            : snippet.status === 'rejected'
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {snippet.status || 'pending'}
                         </span>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        {new Date(snippet.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-2">
-                      {snippet.content}
-                    </h3>
-                    
-                    <p className="text-sm text-gray-600 mb-2">
-                      Source: <a
-                        href={snippet.page_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-500"
-                      >
-                        {snippet.page_url}
-                      </a>
-                    </p>
-                    
-                    {snippet.context && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs font-medium text-gray-700 mb-1">Context:</p>
-                        <div 
-                          className="text-xs text-gray-600 font-mono"
-                          dangerouslySetInnerHTML={{ __html: snippet.context.substring(0, 200) + '...' }}
-                        />
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 ml-4">
-                    <button
-                      onClick={() => setSelectedSnippet(snippet)}
-                      className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                      title="View Details"
-                    >
-                      <EyeIcon className="h-5 w-5" />
-                    </button>
-                    
-                    {snippet.status === 'pending' && (
-                      <>
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleApproveSnippet(snippet.id, 'approved')}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          className="p-2 text-green-600 hover:text-green-900"
                           title="Approve"
                         >
                           <CheckCircleIcon className="h-5 w-5" />
                         </button>
-                        
                         <button
                           onClick={() => handleApproveSnippet(snippet.id, 'rejected')}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 hover:text-red-900"
                           title="Reject"
                         >
                           <XCircleIcon className="h-5 w-5" />
                         </button>
-                      </>
+                        <button
+                          onClick={() => setSelectedSnippet(snippet)}
+                          className="p-2 text-blue-600 hover:text-blue-900"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="px-6 py-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      <span>Source: {snippet.source_url || 'Unknown'}</span>
+                      {snippet.extracted_at && (
+                        <span className="ml-4">
+                          Extracted: {new Date(snippet.extracted_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="prose prose-sm max-w-none">
+                      <p className="text-gray-700">
+                        {snippet.content ? 
+                          (snippet.content.length > 200 
+                            ? `${snippet.content.substring(0, 200)}...` 
+                            : snippet.content)
+                          : 'No content preview available'
+                        }
+                      </p>
+                    </div>
+                    
+                    {snippet.metadata && Object.keys(snippet.metadata).length > 0 && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Metadata:</h4>
+                        <div className="text-xs text-gray-600">
+                          {Object.entries(snippet.metadata).map(([key, value]) => (
+                            <div key={key} className="flex">
+                              <span className="font-medium">{key}:</span>
+                              <span className="ml-2">{String(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {pagination.pages > 1 && (
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => loadSnippets(pagination.page - 1)}
-                disabled={!pagination.has_prev}
-                className="btn-secondary disabled:opacity-50"
-              >
-                Previous
-              </button>
-              
-              <span className="text-sm text-gray-600">
-                Page {pagination.page} of {pagination.pages}
-              </span>
-              
-              <button
-                onClick={() => loadSnippets(pagination.page + 1)}
-                disabled={!pagination.has_next}
-                className="btn-secondary disabled:opacity-50"
-              >
-                Next
-              </button>
+              ))}
             </div>
-          )}
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No content snippets found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {searchTerm || statusFilter !== 'all' || selectedProject
-              ? 'Try adjusting your search or filter criteria.'
-              : 'Start scraping websites to extract content snippets.'
-            }
-          </p>
-        </div>
-      )}
-
+            
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {((pagination.page - 1) * 20) + 1} to {Math.min(pagination.page * 20, pagination.total)} of {pagination.total} results
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => loadSnippets(pagination.page - 1)}
+                    disabled={!pagination.has_prev}
+                    className="btn-secondary disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-2 text-sm text-gray-700">
+                    Page {pagination.page} of {pagination.pages}
+                  </span>
+                  <button
+                    onClick={() => loadSnippets(pagination.page + 1)}
+                    disabled={!pagination.has_next}
+                    className="btn-secondary disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          renderEmptyState()
+        )}
+        
       {/* Snippet Detail Modal */}
       {selectedSnippet && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">

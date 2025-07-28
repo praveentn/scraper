@@ -49,6 +49,7 @@ export const authAPI = {
   logout: () => api.post('/api/auth/logout'),
 };
 
+// UPDATE projectsAPI to include getProjectWebsites
 export const projectsAPI = {
   getAll: (params) => api.get('/api/projects', { params }),
   getById: (id) => api.get(`/api/projects/${id}`),
@@ -58,20 +59,34 @@ export const projectsAPI = {
   getCollaborators: (id) => api.get(`/api/projects/${id}/collaborators`),
   addCollaborator: (id, data) => api.post(`/api/projects/${id}/collaborators`, data),
   getStatistics: (id) => api.get(`/api/projects/${id}/statistics`),
+  // **FIX: Add missing method for getting project websites**
+  getProjectWebsites: (id, params) => api.get(`/api/projects/${id}/websites`, { params }),
 };
 
+// For websitesAPI - add these methods if not present
 export const websitesAPI = {
+  // Existing methods...
   create: (data) => api.post('/api/websites', data),
   getById: (id) => api.get(`/api/websites/${id}`),
   update: (id, data) => api.put(`/api/websites/${id}`, data),
   delete: (id) => api.delete(`/api/websites/${id}`),
+  
+  // **FIX: Add missing methods for website management**
+  getByProject: (projectId, params) => api.get(`/api/projects/${projectId}/websites`, { params }),
+  updateStatus: (id, status) => api.put(`/api/websites/${id}`, { status }),
 };
 
+
+// UPDATE scrapingAPI to include missing methods
 export const scrapingAPI = {
   run: (data) => api.post('/api/scraping/run', data),
   getStatus: (websiteId) => api.get(`/api/scraping/status/${websiteId}`),
   schedule: (data) => api.post('/api/scraping/schedule', data),
+  // **FIX: Add missing stop method**
   stop: (websiteId) => api.post(`/api/scraping/stop/${websiteId}`),
+  // **FIX: Add missing jobs methods**
+  getJobs: (params) => api.get('/api/scraping/jobs', { params }),
+  getAllStatus: () => api.get('/api/scraping/status'),
 };
 
 export const contentAPI = {

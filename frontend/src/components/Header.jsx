@@ -84,7 +84,7 @@ const Header = () => {
               <Menu.Items className="absolute right-0 z-10 mt-2.5 w-48 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
                 <Menu.Item>
                   {({ active }) => (
-                    
+                    <a
                       href="/profile"
                       className={`${
                         active ? 'bg-gray-50' : ''
@@ -97,7 +97,7 @@ const Header = () => {
                 </Menu.Item>
                 <Menu.Item>
                   {({ active }) => (
-                    
+                    <a
                       href="/settings"
                       className={`${
                         active ? 'bg-gray-50' : ''

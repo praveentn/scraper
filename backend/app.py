@@ -204,7 +204,7 @@ def run_app():
         app.run(
             host=host,
             port=port,
-            debug=debug,
+            debug=False,
             threaded=True
         )
     except KeyboardInterrupt:

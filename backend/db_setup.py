@@ -104,12 +104,12 @@ def create_admin_user(app, email="admin@example.com", password="admin123", first
                     print(f"ℹ️  Admin user already exists: {email}")
                 return existing_admin
             
-            # Create admin user
+            # Create admin user with explicit admin role
             admin = User(
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
-                role='admin',  # Explicitly set admin role
+                role='admin',  # CRITICAL: Explicitly set admin role
                 is_active=True
             )
             admin.set_password(password)
@@ -123,8 +123,10 @@ def create_admin_user(app, email="admin@example.com", password="admin123", first
                 print(f"✅ Admin user created successfully: {email} / {password}")
                 print(f"   Role: {created_admin.role}")
                 print(f"   Active: {created_admin.is_active}")
+                print(f"   ID: {created_admin.id}")
             else:
                 print(f"⚠️  Admin user created but role verification failed")
+                print(f"   Expected role: admin, Got: {created_admin.role if created_admin else 'None'}")
             
             return admin
             
@@ -141,11 +143,13 @@ def fix_admin_roles(app):
             # Find users with admin-like emails and ensure they have admin role
             admin_emails = ['admin@example.com', 'admin@test.com', 'administrator@example.com']
             
+            fixed_count = 0
             for email in admin_emails:
                 user = User.query.filter_by(email=email).first()
                 if user and user.role != 'admin':
                     user.role = 'admin'
                     user.is_active = True
+                    fixed_count += 1
                     print(f"✅ Fixed admin role for: {email}")
             
             # Also check for users created in tests with admin in email
@@ -154,9 +158,14 @@ def fix_admin_roles(app):
                 if user.role != 'admin':
                     user.role = 'admin'
                     user.is_active = True
+                    fixed_count += 1
                     print(f"✅ Fixed admin role for: {user.email}")
             
-            db.session.commit()
+            if fixed_count > 0:
+                db.session.commit()
+                print(f"✅ Fixed {fixed_count} admin roles")
+            else:
+                print("ℹ️  No admin roles needed fixing")
             
         except Exception as e:
             db.session.rollback()
@@ -297,7 +306,7 @@ def verify_database(app):
             admin_users = User.query.filter_by(role='admin').all()
             print(f"\n👑 Admin Users: {len(admin_users)}")
             for admin in admin_users:
-                print(f"   - {admin.email} (ID: {admin.id}, Active: {admin.is_active})")
+                print(f"   - {admin.email} (ID: {admin.id}, Active: {admin.is_active}, Role: {admin.role})")
             
             # Check FTS table
             try:
@@ -352,6 +361,7 @@ def main():
     
     if args.action == 'create':
         create_tables(app)
+        create_admin_user(app, args.email, args.password)
         verify_database(app)
         
     elif args.action == 'reset':
@@ -359,6 +369,7 @@ def main():
         if confirm == 'YES':
             reset_database(app)
             create_tables(app)
+            create_admin_user(app, args.email, args.password)
             print("✅ Database reset and recreated")
         else:
             print("❌ Reset cancelled")
@@ -371,6 +382,7 @@ def main():
         
     elif args.action == 'admin':
         create_admin_user(app, args.email, args.password)
+        verify_database(app)
         
     elif args.action == 'sample':
         create_sample_data(app)

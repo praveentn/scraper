@@ -1,7 +1,7 @@
 # backend/utils/decorators.py
 from functools import wraps
 from flask import jsonify, current_app
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from services.auth_service import AuthService, AuthorizationService
 from models import Project
 
@@ -11,6 +11,9 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
+            # Verify JWT token first
+            verify_jwt_in_request()
+            
             user_id = get_jwt_identity()
             current_app.logger.debug(f"Admin check - User ID from token: {user_id}")
             
@@ -38,6 +41,7 @@ def admin_required(f):
                     'message': 'Account is deactivated'
                 }), 403
             
+            # Check for admin role explicitly
             if user.role != 'admin':
                 current_app.logger.warning(f"Admin check failed - User {user.email} has role '{user.role}', expected 'admin'")
                 return jsonify({
@@ -63,6 +67,8 @@ def project_access_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
+            verify_jwt_in_request()
+            
             user_id = get_jwt_identity()
             user = AuthService.get_user_by_id(user_id)
             project_id = kwargs.get('project_id')

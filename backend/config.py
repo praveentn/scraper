@@ -33,10 +33,12 @@ class Config:
     
     # CORS Configuration with new ports
     CORS_ORIGINS = [
-        f"http://localhost:{int(os.environ.get('REACT_PORT', 3232))}",
-        f"http://127.0.0.1:{int(os.environ.get('REACT_PORT', 3232))}",
+        f"http://localhost:{os.environ.get('REACT_PORT', 3232)}",
+        f"http://127.0.0.1:{os.environ.get('REACT_PORT', 3232)}",
         "http://localhost:3232",
-        "http://127.0.0.1:3232"
+        "http://127.0.0.1:3232",
+        "http://localhost:3000",  # Default React port fallback
+        "http://127.0.0.1:3000"   # Default React port fallback
     ]
     
     # Azure OpenAI Configuration
